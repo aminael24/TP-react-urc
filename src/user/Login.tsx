@@ -1,42 +1,123 @@
-import {React, useState} from "react";
-import {loginUser} from "./loginApi";
-import type {Session} from "../model/common";
-import {CustomError} from "../model/CustomError";
+
+import { useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+
+import { loginSuccess } from "../features/auth/authSlice";
+import { api } from "../app/api";
+
+type LoginResponse = {
+    token: string;
+    username: string;
+    externalId: string;
+    id: number;
+};
 
 export function Login() {
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
 
-    const [error, setError] = useState({} as CustomError);
-    const [session, setSession] = useState({} as Session);
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    async function handleSubmit(event: FormEvent) {
         event.preventDefault();
-        const form = event.currentTarget;
-        const data = new FormData(form);
-        loginUser({user_id: -1, username:  data.get('login') as string, password: data.get('password') as string},
-            (result: Session) => {
-                console.log(result);
-                setSession(result);
-                form.reset();
-                setError(new CustomError(""));
-            }, (loginError: CustomError) => {
-                console.log(loginError);
-                setError(loginError);
-                setSession({} as Session);
-            });
-    };
 
-    return(<>
-        <form onSubmit={handleSubmit}>
-            <input name="login" placeholder="login"/><br/>
-            <input name="password" placeholder="password"/><br/>
-            <button type="submit">connexion</button>
-        </form>
-            { session.token &&
-                <span>{session.username} : {session.token}</span>
-            }
-            { error.message &&
-                <span>{error.message}</span>
-            }
-        </>
+        setError("");
+        setLoading(true);
+
+        try {
+            const session = await api<LoginResponse>(
+                "/api/login",
+                {
+                    method: "POST",
+                    body: JSON.stringify({
+                        username,
+                        password,
+                    }),
+                }
+            );
+
+            sessionStorage.setItem("token", session.token);
+            sessionStorage.setItem("username", session.username);
+            sessionStorage.setItem(
+                "externalId",
+                session.externalId
+            );
+            sessionStorage.setItem(
+                "id",
+                String(session.id)
+            );
+
+            dispatch(loginSuccess(session));
+
+            navigate("/messages");
+        } catch (err) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "Connexion impossible"
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <main className="auth-screen">
+            <div className="auth-card">
+                <div className="brand">● URC</div>
+
+                <h1>Connexion</h1>
+                <p>Connecte-toi à UBO Relay Chat</p>
+
+                <form onSubmit={handleSubmit}>
+                    <label>
+                        Identifiant
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(event) =>
+                                setUsername(event.target.value)
+                            }
+                            required
+                            autoComplete="username"
+                            placeholder="Ton identifiant"
+                        />
+                    </label>
+
+                    <label>
+                        Mot de passe
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(event) =>
+                                setPassword(event.target.value)
+                            }
+                            required
+                            autoComplete="current-password"
+                            placeholder="Ton mot de passe"
+                        />
+                    </label>
+
+                    {error && (
+                        <p className="error" role="alert">
+                            {error}
+                        </p>
+                    )}
+
+                    <button type="submit" disabled={loading}>
+                        {loading ? "Connexion..." : "Se connecter"}
+                    </button>
+                </form>
+
+                <p>
+                    Pas encore de compte ?{" "}
+                    <Link to="/register">S'inscrire</Link>
+                </p>
+            </div>
+        </main>
     );
 }
