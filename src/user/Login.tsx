@@ -1,17 +1,21 @@
 
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import {
+    useState,
+    type FormEvent,
+} from "react";
+
+import {
+    Link,
+    useNavigate,
+} from "react-router-dom";
+
 import { useDispatch } from "react-redux";
 
 import { loginSuccess } from "../features/auth/authSlice";
 import { api } from "../app/api";
 
-type LoginResponse = {
-    token: string;
-    username: string;
-    externalId: string;
-    id: number;
-};
+// Type centralisé du professeur
+import type { Session } from "../model/common";
 
 export function Login() {
     const navigate = useNavigate();
@@ -29,7 +33,7 @@ export function Login() {
         setLoading(true);
 
         try {
-            const session = await api<LoginResponse>(
+            const session = await api<Session>(
                 "/api/login",
                 {
                     method: "POST",
@@ -40,19 +44,32 @@ export function Login() {
                 }
             );
 
-            sessionStorage.setItem("token", session.token);
-            sessionStorage.setItem("username", session.username);
+            // Sauvegarder la session pour la restaurer
+            // après actualisation de la page
+            sessionStorage.setItem(
+                "token",
+                session.token
+            );
+
+            sessionStorage.setItem(
+                "username",
+                session.username
+            );
+
             sessionStorage.setItem(
                 "externalId",
                 session.externalId
             );
+
             sessionStorage.setItem(
                 "id",
                 String(session.id)
             );
 
+            // Mettre la session dans Redux Toolkit
             dispatch(loginSuccess(session));
 
+            // Rediriger vers la messagerie
             navigate("/messages");
         } catch (err) {
             setError(
@@ -71,11 +88,13 @@ export function Login() {
                 <div className="brand">● URC</div>
 
                 <h1>Connexion</h1>
+
                 <p>Connecte-toi à UBO Relay Chat</p>
 
                 <form onSubmit={handleSubmit}>
                     <label>
                         Identifiant
+
                         <input
                             type="text"
                             value={username}
@@ -90,6 +109,7 @@ export function Login() {
 
                     <label>
                         Mot de passe
+
                         <input
                             type="password"
                             value={password}
@@ -108,14 +128,21 @@ export function Login() {
                         </p>
                     )}
 
-                    <button type="submit" disabled={loading}>
-                        {loading ? "Connexion..." : "Se connecter"}
+                    <button
+                        type="submit"
+                        disabled={loading}
+                    >
+                        {loading
+                            ? "Connexion..."
+                            : "Se connecter"}
                     </button>
                 </form>
 
                 <p>
                     Pas encore de compte ?{" "}
-                    <Link to="/register">S'inscrire</Link>
+                    <Link to="/register">
+                        S'inscrire
+                    </Link>
                 </p>
             </div>
         </main>
