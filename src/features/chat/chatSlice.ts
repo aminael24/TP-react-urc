@@ -25,11 +25,18 @@ export type Message = {
     createdAt: string;
 };
 
+// Conversation sélectionnée par l'utilisateur
+export type SelectedConversation = {
+    kind: "user" | "room";
+    targetId: number;
+} | null;
+
 type ChatState = {
     users: PublicUser[];
     rooms: Room[];
     messages: Message[];
     loading: boolean;
+    selectedConversation: SelectedConversation;
 };
 
 const initialState: ChatState = {
@@ -37,6 +44,7 @@ const initialState: ChatState = {
     rooms: [],
     messages: [],
     loading: false,
+    selectedConversation: null,
 };
 
 const chatSlice = createSlice({
@@ -71,6 +79,14 @@ const chatSlice = createSlice({
             state.loading = action.payload;
         },
 
+        // Nouvelle action Redux
+        setSelectedConversation: (
+            state,
+            action: PayloadAction<SelectedConversation>
+        ) => {
+            state.selectedConversation = action.payload;
+        },
+
         resetChat: () => initialState,
     },
 });
@@ -80,6 +96,7 @@ export const {
     setRooms,
     setMessages,
     setLoading,
+    setSelectedConversation,
     resetChat,
 } = chatSlice.actions;
 

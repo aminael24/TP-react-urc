@@ -25,6 +25,7 @@ import {
     setMessages,
     setRooms,
     setUsers,
+    setSelectedConversation,
     type PublicUser,
     type Room,
     type Message,
@@ -42,16 +43,23 @@ import MessageInput from "../components/MessageInput";
 import ImageUpload from "../components/ImageUpload";
 
 export default function Chat() {
+    // Paramètres récupérés dans l'URL
     const { userId, roomId } = useParams();
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
+    // Session de l'utilisateur connecté
     const session = useSelector(
         (state: RootState) => state.auth.session
     )!;
 
-    const { users, rooms, messages } = useSelector(
+    // Données Redux
+    const {
+        users,
+        rooms,
+        messages,
+    } = useSelector(
         (state: RootState) => state.chat
     );
 
@@ -62,6 +70,7 @@ export default function Chat() {
         Record<string, number>
     >({});
 
+    // Identifier la conversation à partir de l'URL
     const kind = userId
         ? "user"
         : roomId
@@ -74,6 +83,21 @@ export default function Chat() {
         kind !== null &&
         Number.isSafeInteger(targetId) &&
         targetId > 0;
+
+    // Nouvelle fonctionnalité :
+    // synchroniser la conversation avec Redux
+    useEffect(() => {
+        dispatch(
+            setSelectedConversation(
+                valid
+                    ? {
+                        kind,
+                        targetId,
+                    }
+                    : null
+            )
+        );
+    }, [dispatch, valid, kind, targetId]);
 
     const selected = valid
         ? `${kind}/${targetId}`
@@ -92,11 +116,15 @@ export default function Chat() {
                 }`
                 : "Sélectionne une discussion";
 
+    // Déconnexion
     const signOut = useCallback(async () => {
         try {
             await stopPush();
         } catch (error) {
-            console.error("Déconnexion Pusher:", error);
+            console.error(
+                "Déconnexion Pusher:",
+                error
+            );
         }
 
         sessionStorage.removeItem("token");
@@ -107,12 +135,17 @@ export default function Chat() {
         dispatch(logout());
         dispatch(resetChat());
 
-        navigate("/login", { replace: true });
+        navigate("/login", {
+            replace: true,
+        });
     }, [dispatch, navigate]);
 
+    // Gestion des erreurs
     const handleError = useCallback(
         (err: unknown) => {
-            if (!(err instanceof Error)) return;
+            if (!(err instanceof Error)) {
+                return;
+            }
 
             if (
                 err.message.includes("UNAUTHORIZED") ||
@@ -127,6 +160,7 @@ export default function Chat() {
         [signOut]
     );
 
+    // Charger les utilisateurs et les salons
     useEffect(() => {
         let active = true;
 
@@ -151,7 +185,9 @@ export default function Chat() {
                 dispatch(setUsers(loadedUsers));
                 dispatch(setRooms(loadedRooms));
             } catch (error) {
-                if (active) handleError(error);
+                if (active) {
+                    handleError(error);
+                }
             }
         }
 
@@ -160,79 +196,98 @@ export default function Chat() {
         return () => {
             active = false;
         };
-    }, [dispatch, session.token, handleError]);
-
-    const loadMessages = useCallback(async () => {
-        if (!valid) return;
-
-        try {
-            const loaded = await api<Message[]>(
-                `/api/messages?kind=${kind}&targetId=${targetId}`,
-                {},
-                session.token
-            );
-
-            // Ne pas effacer les messages si la lecture
-            // de la nouvelle conversation est en échec.
-            dispatch(setMessages(loaded));
-        } catch (error) {
-            handleError(error);
-        }
     }, [
-        valid,
-        kind,
-        targetId,
-        session.token,
         dispatch,
+        session.token,
         handleError,
     ]);
 
-    const loadUnread = useCallback(async () => {
-        try {
-            const counters = await api<
-                Record<string, number>
-            >(
-                "/api/unread",
-                {},
-                session.token
-            );
+    // Charger les messages
+    const loadMessages = useCallback(
+        async () => {
+            if (!valid) return;
 
-            setUnread(counters);
-        } catch (error) {
-            console.error("Compteurs:", error);
-        }
-    }, [session.token]);
+            try {
+                const loaded = await api<Message[]>(
+                    `/api/messages?kind=${kind}&targetId=${targetId}`,
+                    {},
+                    session.token
+                );
 
-    const markRead = useCallback(async () => {
-        if (!valid) return;
+                dispatch(setMessages(loaded));
+            } catch (error) {
+                handleError(error);
+            }
+        },
+        [
+            valid,
+            kind,
+            targetId,
+            session.token,
+            dispatch,
+            handleError,
+        ]
+    );
 
-        try {
-            await api(
-                "/api/mark-read",
-                {
-                    method: "POST",
-                    body: JSON.stringify({
-                        kind,
-                        targetId,
-                    }),
-                },
-                session.token
-            );
+    // Charger les compteurs non lus
+    const loadUnread = useCallback(
+        async () => {
+            try {
+                const counters = await api<
+                    Record<string, number>
+                >(
+                    "/api/unread",
+                    {},
+                    session.token
+                );
 
-            await loadUnread();
-        } catch (error) {
-            console.error("Lecture:", error);
-        }
-    }, [
-        valid,
-        kind,
-        targetId,
-        session.token,
-        loadUnread,
-    ]);
+                setUnread(counters);
+            } catch (error) {
+                console.error(
+                    "Compteurs non lus:",
+                    error
+                );
+            }
+        },
+        [session.token]
+    );
 
-    // Recharger les messages après changement
-    // de conversation, puis périodiquement.
+    // Marquer une conversation comme lue
+    const markRead = useCallback(
+        async () => {
+            if (!valid) return;
+
+            try {
+                await api(
+                    "/api/mark-read",
+                    {
+                        method: "POST",
+                        body: JSON.stringify({
+                            kind,
+                            targetId,
+                        }),
+                    },
+                    session.token
+                );
+
+                await loadUnread();
+            } catch (error) {
+                console.error(
+                    "Lecture des messages:",
+                    error
+                );
+            }
+        },
+        [
+            valid,
+            kind,
+            targetId,
+            session.token,
+            loadUnread,
+        ]
+    );
+
+    // Actualisation des messages
     useEffect(() => {
         dispatch(setMessages([]));
 
@@ -245,7 +300,10 @@ export default function Chat() {
 
             await loadMessages();
 
-            if (active && document.visibilityState === "visible") {
+            if (
+                active &&
+                document.visibilityState === "visible"
+            ) {
                 await markRead();
             }
         }
@@ -254,7 +312,9 @@ export default function Chat() {
 
         const interval = window.setInterval(
             () => {
-                if (document.visibilityState === "visible") {
+                if (
+                    document.visibilityState === "visible"
+                ) {
                     void refresh();
                 }
             },
@@ -273,6 +333,7 @@ export default function Chat() {
         markRead,
     ]);
 
+    // Actualisation des compteurs
     useEffect(() => {
         void loadUnread();
 
@@ -283,18 +344,25 @@ export default function Chat() {
             3000
         );
 
-        return () => window.clearInterval(interval);
+        return () => {
+            window.clearInterval(interval);
+        };
     }, [loadUnread]);
 
-    // Une notification reçue demande un
-    // rafraîchissement de la conversation.
+    // Réception d'événements du service worker
     useEffect(() => {
-        if (!("serviceWorker" in navigator)) {
+        if (
+            !("serviceWorker" in navigator)
+        ) {
             return;
         }
 
-        function onPushMessage(event: MessageEvent) {
-            if (event.data?.type !== "NEW_MESSAGE") {
+        function onPushMessage(
+            event: MessageEvent
+        ) {
+            if (
+                event.data?.type !== "NEW_MESSAGE"
+            ) {
                 return;
             }
 
@@ -313,8 +381,12 @@ export default function Chat() {
                 onPushMessage
             );
         };
-    }, [loadMessages, loadUnread]);
+    }, [
+        loadMessages,
+        loadUnread,
+    ]);
 
+    // Activer les notifications Pusher
     async function enablePush() {
         try {
             setError("");
@@ -326,13 +398,15 @@ export default function Chat() {
 
             if (!enabled) {
                 setError(
-                    "Autorise les notifications dans Firefox."
+                    "Autorise les notifications dans ton navigateur."
                 );
                 return;
             }
 
             for (const room of rooms) {
-                await subscribeToRoom(room.room_id);
+                await subscribeToRoom(
+                    room.room_id
+                );
             }
 
             setPushEnabled(true);
@@ -341,15 +415,21 @@ export default function Chat() {
         }
     }
 
+    // S'abonner aux salons chargés
     useEffect(() => {
         if (!pushEnabled) return;
 
         for (const room of rooms) {
-            void subscribeToRoom(room.room_id)
-                .catch(console.error);
+            void subscribeToRoom(
+                room.room_id
+            ).catch(console.error);
         }
-    }, [pushEnabled, rooms]);
+    }, [
+        pushEnabled,
+        rooms,
+    ]);
 
+    // Envoyer un message ou une image
     async function sendMessage(
         content: string,
         imageUrl?: string
@@ -367,7 +447,8 @@ export default function Chat() {
                         kind,
                         targetId,
                         content,
-                        imageUrl: imageUrl || null,
+                        imageUrl:
+                            imageUrl || null,
                     }),
                 },
                 session.token
@@ -381,6 +462,7 @@ export default function Chat() {
         }
     }
 
+    // Ajouter ou retirer une réaction
     async function reactToMessage(
         messageId: string,
         emoji: string
@@ -412,7 +494,9 @@ export default function Chat() {
         <main className="chat-layout">
             <aside className="sidebar">
                 <div className="sidebar-header">
-                    <div className="brand">● URC</div>
+                    <div className="brand">
+                        ● URC
+                    </div>
 
                     <small>
                         Connecté : {session.username}
@@ -421,7 +505,9 @@ export default function Chat() {
                     <button
                         className="secondary"
                         type="button"
-                        onClick={() => void enablePush()}
+                        onClick={() =>
+                            void enablePush()
+                        }
                     >
                         {pushEnabled
                             ? "Notifications activées"
@@ -431,7 +517,9 @@ export default function Chat() {
                     <button
                         className="secondary"
                         type="button"
-                        onClick={() => void signOut()}
+                        onClick={() =>
+                            void signOut()
+                        }
                     >
                         Déconnexion
                     </button>
@@ -448,7 +536,9 @@ export default function Chat() {
 
             <section className="chat-panel">
                 <header className="chat-header">
-                    <strong>{title}</strong>
+                    <strong>
+                        {title}
+                    </strong>
 
                     <small>
                         {kind === "room"
@@ -460,7 +550,10 @@ export default function Chat() {
                 </header>
 
                 {error && (
-                    <div className="error" role="alert">
+                    <div
+                        className="error"
+                        role="alert"
+                    >
                         {error}
                     </div>
                 )}
@@ -470,20 +563,30 @@ export default function Chat() {
                         <MessageList
                             messages={messages}
                             currentId={session.id}
-                            onReact={(id, emoji) => {
-                                void reactToMessage(id, emoji);
+                            onReact={(
+                                id,
+                                emoji
+                            ) => {
+                                void reactToMessage(
+                                    id,
+                                    emoji
+                                );
                             }}
                         />
 
                         <div className="chat-composer">
                             <ImageUpload
                                 token={session.token}
-                                onUploaded={(url) => sendMessage("", url)}
+                                onUploaded={(url) =>
+                                    sendMessage("", url)
+                                }
                             />
 
                             <div className="chat-composer-input">
                                 <MessageInput
-                                    onSend={(content) => sendMessage(content)}
+                                    onSend={(content) =>
+                                        sendMessage(content)
+                                    }
                                     disabled={false}
                                 />
                             </div>
