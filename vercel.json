@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/((?!api/|assets/|service-worker\\.js).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
