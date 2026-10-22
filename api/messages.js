@@ -1,7 +1,9 @@
 
 import { sql } from "@vercel/postgres";
+
 import { getConnecterUser } from "../lib/session.js";
 import { redis, keyFor } from "../lib/chatStore.js";
+import { getAccessibleRoom } from "../lib/roomAccess.js";
 
 export default async function handler(req, res) {
     try {
@@ -15,7 +17,8 @@ export default async function handler(req, res) {
 
         if (!user) {
             return res.status(401).json({
-                message: "UNAUTHORIZED",
+                code: "UNAUTHORIZED",
+                message: "Session expirée",
             });
         }
 
@@ -32,21 +35,29 @@ export default async function handler(req, res) {
             });
         }
 
-        const exists =
-            kind === "user"
-                ? await sql`
-                        SELECT user_id FROM users
-                        WHERE user_id = ${targetId}
-                `
-                : await sql`
-                        SELECT room_id FROM rooms
-                        WHERE room_id = ${targetId}
-                `;
+        if (kind === "room") {
+            const room = await getAccessibleRoom(
+                user.id,
+                targetId
+            );
 
-        if (!exists.rows.length) {
-            return res.status(404).json({
-                message: "Conversation introuvable",
-            });
+            if (!room) {
+                return res.status(403).json({
+                    message: "Accès refusé",
+                });
+            }
+        } else {
+            const exists = await sql`
+        SELECT user_id
+        FROM users
+        WHERE user_id = ${targetId}
+      `;
+
+            if (!exists.rows.length) {
+                return res.status(404).json({
+                    message: "Utilisateur introuvable",
+                });
+            }
         }
 
         const key = keyFor(
@@ -55,10 +66,14 @@ export default async function handler(req, res) {
             targetId
         );
 
-        const items = await redis.lrange(key, 0, 199);
+        const items = await redis.lrange(
+            key,
+            0,
+            199
+        );
 
         const messages = items
-            .map((item) =>
+            .map(item =>
                 typeof item === "string"
                     ? JSON.parse(item)
                     : item
@@ -66,7 +81,7 @@ export default async function handler(req, res) {
             .reverse();
 
         const result = await Promise.all(
-            messages.map(async (message) => {
+            messages.map(async message => {
                 const stored = await redis.hgetall(
                     `reaction:${key}:${message.id}`
                 );
@@ -89,7 +104,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json(result);
     } catch (error) {
-        console.error(error);
+        console.error("Messages:", error);
 
         return res.status(500).json({
             message: "Erreur serveur",

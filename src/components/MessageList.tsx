@@ -17,12 +17,14 @@ type Props = {
         messageId: string,
         emoji: string
     ) => void;
+    onReply: (message: Message) => void;
 };
 
 export default function MessageList({
                                         messages,
                                         currentId,
                                         onReact,
+                                        onReply,
                                     }: Props) {
     const endRef = useRef<HTMLDivElement>(null);
 
@@ -32,6 +34,13 @@ export default function MessageList({
         });
     }, [messages]);
 
+    const byId = new Map(
+        messages.map(message => [
+            message.id,
+            message,
+        ])
+    );
+
     return (
         <div className="messages">
             {messages.length === 0 && (
@@ -40,9 +49,13 @@ export default function MessageList({
                 </div>
             )}
 
-            {messages.map((message) => {
+            {messages.map(message => {
                 const mine =
                     Number(message.senderId) === currentId;
+
+                const parent = message.replyTo
+                    ? byId.get(message.replyTo)
+                    : null;
 
                 return (
                     <div
@@ -53,6 +66,19 @@ export default function MessageList({
                         }
                     >
                         <strong>{message.senderName}</strong>
+
+                        {message.replyTo && (
+                            <div className="reply-reference">
+                                ↳ Réponse à{" "}
+                                {parent?.senderName ||
+                                    "un ancien message"}
+                                {" : "}
+                                {parent?.content ||
+                                    (parent?.imageUrl
+                                        ? "Image"
+                                        : "Message expiré")}
+                            </div>
+                        )}
 
                         {message.content && (
                             <p>{message.content}</p>
@@ -66,8 +92,8 @@ export default function MessageList({
                             >
                                 <img
                                     src={message.imageUrl}
-                                    alt="Image partagée"
                                     className="message-image"
+                                    alt="Image partagée"
                                 />
                             </a>
                         )}
@@ -79,11 +105,21 @@ export default function MessageList({
                         </small>
 
                         <ReactionBar
-                            reactions={message.reactions || {}}
-                            onReact={(emoji) =>
+                            reactions={
+                                message.reactions || {}
+                            }
+                            onReact={emoji =>
                                 onReact(message.id, emoji)
                             }
                         />
+
+                        <button
+                            type="button"
+                            className="reply-button"
+                            onClick={() => onReply(message)}
+                        >
+                            ↩ Répondre
+                        </button>
                     </div>
                 );
             })}

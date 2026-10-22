@@ -1,6 +1,7 @@
 
 import { getConnecterUser } from "../lib/session.js";
 import { redis } from "../lib/chatStore.js";
+import { getAccessibleRoom } from "../lib/roomAccess.js";
 
 export default async function handler(req, res) {
     try {
@@ -14,7 +15,8 @@ export default async function handler(req, res) {
 
         if (!user) {
             return res.status(401).json({
-                message: "UNAUTHORIZED",
+                code: "UNAUTHORIZED",
+                message: "Session expirée",
             });
         }
 
@@ -36,20 +38,28 @@ export default async function handler(req, res) {
             });
         }
 
-        const key =
-            `read:${user.id}:${kind}:${targetId}`;
+        if (
+            kind === "room" &&
+            !await getAccessibleRoom(user.id, targetId)
+        ) {
+            return res.status(403).json({
+                message: "Accès refusé",
+            });
+        }
 
         await redis.set(
-            key,
+            `read:${user.id}:${kind}:${targetId}`,
             new Date().toISOString(),
-            { ex: 172800 }
+            {
+                ex: 172800,
+            }
         );
 
         return res.status(200).json({
             success: true,
         });
     } catch (error) {
-        console.error(error);
+        console.error("Mark read:", error);
 
         return res.status(500).json({
             message: "Erreur serveur",

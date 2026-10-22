@@ -45,7 +45,7 @@ export default async function handler(request) {
         if (
             username.length < 3 ||
             username.length > 50 ||
-            !/^\S+@\S+\.\S+$/.test(email) ||
+            !/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(email)||
             email.length > 255 ||
             password.length < 8
         ) {

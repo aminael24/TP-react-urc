@@ -1,6 +1,7 @@
 
 import { getConnecterUser } from "../lib/session.js";
 import { redis, keyFor } from "../lib/chatStore.js";
+import { getAccessibleRoom } from "../lib/roomAccess.js";
 
 const allowed = ["❤️", "😂", "👍", "😮"];
 
@@ -16,7 +17,8 @@ export default async function handler(req, res) {
 
         if (!user) {
             return res.status(401).json({
-                message: "UNAUTHORIZED",
+                code: "UNAUTHORIZED",
+                message: "Session expirée",
             });
         }
 
@@ -40,11 +42,32 @@ export default async function handler(req, res) {
             });
         }
 
-        const key = keyFor(kind, user.id, targetId);
+        if (kind === "room") {
+            const room = await getAccessibleRoom(
+                user.id,
+                targetId
+            );
 
-        const items = await redis.lrange(key, 0, -1);
+            if (!room) {
+                return res.status(403).json({
+                    message: "Accès refusé",
+                });
+            }
+        }
 
-        const exists = items.some((item) => {
+        const key = keyFor(
+            kind,
+            user.id,
+            targetId
+        );
+
+        const items = await redis.lrange(
+            key,
+            0,
+            -1
+        );
+
+        const exists = items.some(item => {
             const message =
                 typeof item === "string"
                     ? JSON.parse(item)
@@ -68,7 +91,10 @@ export default async function handler(req, res) {
         );
 
         if (old === emoji) {
-            await redis.hdel(reactionKey, String(user.id));
+            await redis.hdel(
+                reactionKey,
+                String(user.id)
+            );
         } else {
             await redis.hset(reactionKey, {
                 [String(user.id)]: emoji,
@@ -81,10 +107,10 @@ export default async function handler(req, res) {
             success: true,
         });
     } catch (error) {
-        console.error(error);
+        console.error("Reactions:", error);
 
         return res.status(500).json({
-            message: "Erreur réactions",
+            message: "Erreur serveur",
         });
     }
 }

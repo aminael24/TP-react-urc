@@ -13,6 +13,8 @@ export type PublicUser = {
 export type Room = {
     room_id: number;
     name: string;
+    is_private?: boolean;
+    created_by?: number;
 };
 
 export type Message = {
@@ -21,11 +23,11 @@ export type Message = {
     senderName: string;
     content: string;
     imageUrl?: string | null;
+    replyTo?: string | null;
     reactions?: Record<string, number>;
     createdAt: string;
 };
 
-// Conversation sélectionnée par l'utilisateur
 export type SelectedConversation = {
     kind: "user" | "room";
     targetId: number;
@@ -79,7 +81,6 @@ const chatSlice = createSlice({
             state.loading = action.payload;
         },
 
-        // Nouvelle action Redux
         setSelectedConversation: (
             state,
             action: PayloadAction<SelectedConversation>

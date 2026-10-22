@@ -93,17 +93,16 @@ export function Login() {
 
                 <form onSubmit={handleSubmit}>
                     <label>
-                        Identifiant
-
+                        Identifiant ou email
                         <input
                             type="text"
                             value={username}
-                            onChange={(event) =>
+                            onChange={event =>
                                 setUsername(event.target.value)
                             }
                             required
                             autoComplete="username"
-                            placeholder="Ton identifiant"
+                            placeholder="Identifiant ou adresse email"
                         />
                     </label>
 

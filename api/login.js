@@ -1,46 +1,151 @@
-import { db } from '@vercel/postgres';
-import { Redis } from '@upstash/redis';
-import {arrayBufferToBase64, stringToArrayBuffer} from "../lib/base64.js";
+
+import { sql } from "@vercel/postgres";
+import { Redis } from "@upstash/redis";
+
+import {
+    arrayBufferToBase64,
+    stringToArrayBuffer,
+} from "../lib/base64.js";
 
 export const config = {
-    runtime: 'edge',
+    runtime: "edge",
 };
 
-const redis = Redis.fromEnv();
+const redis = new Redis({
+    url:
+        process.env.UPSTASH_REDIS_REST_URL ||
+        process.env.KV_REST_API_URL,
+    token:
+        process.env.UPSTASH_REDIS_REST_TOKEN ||
+        process.env.KV_REST_API_TOKEN,
+});
+
+function json(body, status = 200) {
+    return new Response(
+        JSON.stringify(body),
+        {
+            status,
+            headers: {
+                "Content-Type": "application/json",
+            },
+        }
+    );
+}
 
 export default async function handler(request) {
+    if (request.method !== "POST") {
+        return json(
+            { message: "Méthode non autorisée" },
+            405
+        );
+    }
+
     try {
-        const {username, password} = await request.json();
-        const hash = await crypto.subtle.digest('SHA-256', stringToArrayBuffer(username + password));
-        const hashed64 = arrayBufferToBase64(hash);
+        const body = await request.json();
 
-        const client = await db.connect();
-        const {rowCount, rows} = await client.sql`select * from users where username = ${username} and password = ${hashed64}`;
-        if (rowCount !== 1) {
-            const error = {code: "UNAUTHORIZED", message: "Identifiant ou mot de passe incorrect"};
-            return new Response(JSON.stringify(error), {
-                status: 401,
-                headers: {'content-type': 'application/json'},
-            });
-        } else {
-            await client.sql`update users set last_login = now() where user_id = ${rows[0].user_id}`;
-            const token = crypto.randomUUID().toString();
-            const user = {id: rows[0].user_id, username: rows[0].username, email: rows[0].email, externalId: rows[0].external_id}
-            await redis.set(token, user, { ex: 3600 });
-            const userInfo = {};
-            userInfo[user.id] = user;
-            await redis.hset("users", userInfo);
+        // Le champ username peut contenir un email
+        // ou un identifiant classique.
+        const identifier = String(
+            body.username || ""
+        ).trim();
 
-            return new Response(JSON.stringify({token: token, username: username, externalId: rows[0].external_id, id: rows[0].user_id}), {
-                status: 200,
-                headers: {'content-type': 'application/json'},
-            });
+        const password = String(
+            body.password || ""
+        );
+
+        if (!identifier || !password) {
+            return json(
+                { message: "Champs obligatoires" },
+                400
+            );
         }
-    } catch (error) {
-        console.log(error);
-        return new Response(JSON.stringify(error), {
-            status: 500,
-            headers: {'content-type': 'application/json'},
+
+        // Retrouver l'utilisateur par username ou email
+        const result = await sql`
+      SELECT
+        user_id,
+        username,
+        email,
+        password,
+        external_id
+      FROM users
+      WHERE LOWER(username) = LOWER(${identifier})
+         OR LOWER(email) = LOWER(${identifier})
+      LIMIT 1
+    `;
+
+        if (result.rows.length !== 1) {
+            return json(
+                {
+                    code: "UNAUTHORIZED",
+                    message:
+                        "Identifiant ou mot de passe incorrect",
+                },
+                401
+            );
+        }
+
+        const user = result.rows[0];
+
+        // Conserver exactement le hashage historique
+        const hash = await crypto.subtle.digest(
+            "SHA-256",
+            stringToArrayBuffer(
+                user.username + password
+            )
+        );
+
+        const hashed64 =
+            arrayBufferToBase64(hash);
+
+        if (hashed64 !== user.password) {
+            return json(
+                {
+                    code: "UNAUTHORIZED",
+                    message:
+                        "Identifiant ou mot de passe incorrect",
+                },
+                401
+            );
+        }
+
+        await sql`
+      UPDATE users
+      SET last_login = NOW()
+      WHERE user_id = ${user.user_id}
+    `;
+
+        const token = crypto.randomUUID();
+
+        const sessionUser = {
+            id: user.user_id,
+            username: user.username,
+            email: user.email,
+            externalId: user.external_id,
+        };
+
+        await redis.set(
+            token,
+            sessionUser,
+            { ex: 3600 }
+        );
+
+        await redis.hset("users", {
+            [String(user.user_id)]: sessionUser,
         });
+
+        return json({
+            token,
+            id: user.user_id,
+            username: user.username,
+            externalId: user.external_id,
+        });
+    } catch (error) {
+        console.error("Login:", error);
+
+        return json(
+            { message: "Erreur serveur" },
+            500
+        );
     }
 }
