@@ -6,69 +6,91 @@ import type {
     Room,
 } from "../features/chat/chatSlice";
 
-interface UserListProps {
+type Props = {
     users: PublicUser[];
     rooms: Room[];
     currentId: number;
     selected: string;
-}
+    unread: Record<string, number>;
+};
 
 export default function UserList({
                                      users,
                                      rooms,
                                      currentId,
                                      selected,
-                                 }: UserListProps) {
+                                     unread,
+                                 }: Props) {
     return (
         <div className="sidebar-content">
             <h3>Utilisateurs</h3>
 
             {users
-                .filter((user) => user.user_id !== currentId)
-                .map((user) => (
-                    <Link
-                        key={user.user_id}
-                        to={`/messages/user/${user.user_id}`}
-                        className={
-                            "contact " +
-                            (selected === `user/${user.user_id}`
-                                ? "active"
-                                : "")
-                        }
-                    >
-            <span className="avatar">
-              {user.username[0]?.toUpperCase()}
-            </span>
+                .filter(
+                    (user) =>
+                        Number(user.user_id) !== currentId
+                )
+                .map((user) => {
+                    const key = `user/${user.user_id}`;
 
-                        <span>
-              <strong>{user.username}</strong>
+                    return (
+                        <Link
+                            key={user.user_id}
+                            to={`/messages/${key}`}
+                            className={
+                                "contact " +
+                                (selected === key ? "active" : "")
+                            }
+                        >
+              <span className="avatar">
+                {user.username[0]?.toUpperCase()}
+              </span>
 
-              <small>
-                {user.last_login
-                    ? `Dernière connexion : ${user.last_login}`
-                    : "Jamais connecté"}
-              </small>
-            </span>
-                    </Link>
-                ))}
+                            <span>
+                <strong>{user.username}</strong>
+
+                <small>
+                  {user.last_login
+                      ? `Dernière connexion : ${user.last_login}`
+                      : "Jamais connecté"}
+                </small>
+              </span>
+
+                            {(unread[key] || 0) > 0 && (
+                                <span className="unread-badge">
+                  {unread[key]}
+                </span>
+                            )}
+                        </Link>
+                    );
+                })}
 
             <h3>Salons</h3>
 
-            {rooms.map((room) => (
-                <Link
-                    key={room.room_id}
-                    to={`/messages/room/${room.room_id}`}
-                    className={
-                        "contact " +
-                        (selected === `room/${room.room_id}`
-                            ? "active"
-                            : "")
-                    }
-                >
-                    <span className="avatar">#</span>
-                    <strong>{room.name}</strong>
-                </Link>
-            ))}
+            {rooms.map((room) => {
+                const key = `room/${room.room_id}`;
+
+                return (
+                    <Link
+                        key={room.room_id}
+                        to={`/messages/${key}`}
+                        className={
+                            "contact " +
+                            (selected === key ? "active" : "")
+                        }
+                    >
+                        <span className="avatar">#</span>
+
+                        <strong>{room.name}</strong>
+
+                        {(unread[key] || 0) > 0 && (
+                            <span className="unread-badge">
+                {unread[key]}
+              </span>
+                        )}
+                    </Link>
+                );
+            })}
         </div>
     );
 }

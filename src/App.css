@@ -292,3 +292,113 @@
     max-width: 90%;
   }
 }
+
+/* Bouton d'envoi d'image */
+
+.upload-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 15px;
+  padding: 10px 16px;
+  background: #eeecfb;
+  color: #5144bc;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-button:hover {
+  background: #dfd9fa;
+}
+
+.message-image {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 12px;
+  margin: 10px 0;
+  object-fit: contain;
+}
+
+/* Réactions emoji */
+
+.reaction-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.reaction-bar button {
+  padding: 5px 9px;
+  background: #f4f2fc;
+  border: 1px solid #e5e0f4;
+  border-radius: 15px;
+  color: #303047;
+  cursor: pointer;
+}
+
+.reaction-bar button:hover {
+  background: #e1dbfa;
+}
+
+.bubble.mine .reaction-bar button {
+  background: #ffffff25;
+  color: white;
+  border-color: #ffffff40;
+}
+
+/* Messages non lus */
+
+.unread-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  margin-left: auto;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 20px;
+  background: #5749c5;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Boutons */
+
+.secondary {
+  border: 1px solid #e3e3ee;
+  background: #f6f6fb;
+  color: #35354b;
+  border-radius: 8px;
+  padding: 9px;
+}
+
+.secondary:hover {
+  background: #eeecfa;
+}
+.chat-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: white;
+}
+
+.chat-composer .upload-button {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.chat-composer-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-composer-input form {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}

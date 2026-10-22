@@ -1,5 +1,8 @@
 
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import {
+    createSlice,
+    type PayloadAction,
+} from "@reduxjs/toolkit";
 
 export type PublicUser = {
     user_id: number;
@@ -17,15 +20,17 @@ export type Message = {
     senderId: number;
     senderName: string;
     content: string;
+    imageUrl?: string | null;
+    reactions?: Record<string, number>;
     createdAt: string;
 };
 
-interface ChatState {
+type ChatState = {
     users: PublicUser[];
     rooms: Room[];
     messages: Message[];
     loading: boolean;
-}
+};
 
 const initialState: ChatState = {
     users: [],
