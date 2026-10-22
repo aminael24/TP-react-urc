@@ -4,7 +4,7 @@ import PushNotifications from
 
 import {
     getConnecterUser,
-} from "../lib/session";
+} from "../lib/session.js";
 
 export default async function handler(req, res) {
     try {

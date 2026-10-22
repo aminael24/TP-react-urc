@@ -1,7 +1,7 @@
 
 import { sql } from "@vercel/postgres";
-import { getConnecterUser } from "../lib/session";
-import { redis, keyFor } from "../lib/chatStore";
+import { getConnecterUser } from "../lib/session.js";
+import { redis, keyFor } from "../lib/chatStore.js";
 
 export default async function handler(req, res) {
     try {

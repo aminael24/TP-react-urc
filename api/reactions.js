@@ -1,6 +1,6 @@
 
-import { getConnecterUser } from "../lib/session";
-import { redis, keyFor } from "../lib/chatStore";
+import { getConnecterUser } from "../lib/session.js";
+import { redis, keyFor } from "../lib/chatStore.js";
 
 const allowed = ["❤️", "😂", "👍", "😮"];
 

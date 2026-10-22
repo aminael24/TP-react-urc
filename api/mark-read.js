@@ -1,6 +1,6 @@
 
-import { getConnecterUser } from "../lib/session";
-import { redis } from "../lib/chatStore";
+import { getConnecterUser } from "../lib/session.js";
+import { redis } from "../lib/chatStore.js";
 
 export default async function handler(req, res) {
     try {

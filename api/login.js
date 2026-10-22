@@ -1,6 +1,6 @@
 import { db } from '@vercel/postgres';
 import { Redis } from '@upstash/redis';
-import {arrayBufferToBase64, stringToArrayBuffer} from "../lib/base64";
+import {arrayBufferToBase64, stringToArrayBuffer} from "../lib/base64.js";
 
 export const config = {
     runtime: 'edge',

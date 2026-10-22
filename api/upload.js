@@ -1,7 +1,7 @@
 
 import { randomUUID } from "node:crypto";
 import { put } from "@vercel/blob";
-import { getConnecterUser } from "../lib/session";
+import { getConnecterUser } from "../lib/session.js";
 
 const types = {
     "image/png": {

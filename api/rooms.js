@@ -4,7 +4,7 @@ import { sql } from "@vercel/postgres";
 import {
     checkSession,
     unauthorizedResponse,
-} from "../lib/session";
+} from "../lib/session.js";
 
 export const config = {
     runtime: "edge",

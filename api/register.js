@@ -4,7 +4,7 @@ import { sql } from "@vercel/postgres";
 import {
     arrayBufferToBase64,
     stringToArrayBuffer,
-} from "../lib/base64";
+} from "../lib/base64.js";
 
 export const config = {
     runtime: "edge",
